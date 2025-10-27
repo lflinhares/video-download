@@ -1,4 +1,4 @@
-const socket = io('http://localhost:3000');
+const socket = io();
 
 const videoUrlInput = document.getElementById('videoUrl');
 const downloadBtn = document.getElementById('downloadBtn');
@@ -23,7 +23,7 @@ downloadBtn.addEventListener('click', async () => {
   resultDiv.innerHTML = '';
 
   try {
-    const response = await fetch('http://localhost:3000/download', {
+    const response = await fetch('/download', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -56,7 +56,7 @@ socket.on('download-complete', (data) => {
 
   resultDiv.innerHTML = `
         <a 
-            href="http://localhost:3000${data.downloadLink}" 
+            href="${data.downloadLink}" 
             target="_blank" 
             download="${data.fileName}"
         >
