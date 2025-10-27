@@ -1,0 +1,22 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: lfdig/youtube-downloader-api-prod
+    container_name: nest_youtube_api_prod
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./downloads:/usr/src/app/downloads
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    container_name: redis_youtube_downloader_prod
+    restart: unless-stopped
