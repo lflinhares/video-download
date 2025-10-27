@@ -17,6 +17,10 @@ const MAX_FILE_SIZE_BYTES = (1 * 1024 * 1024 * 1024) / 6;
 export class DownloadService {
   constructor(@InjectQueue('download') private readonly downloadQueue: Queue) {}
 
+  async getWaitingJobs() {
+    return this.downloadQueue.getWaiting();
+  }
+
   private async getVideoMetadata(videoUrl: string): Promise<any> {
     return new Promise((resolve, reject) => {
       const args = ['--no-playlist', '--dump-json', videoUrl];

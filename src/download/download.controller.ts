@@ -7,6 +7,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { DownloadService } from './download.service';
+import { DownloadGateway } from './download.gateway';
 
 class DownloadVideoDto {
   video_url: string;
@@ -15,7 +16,10 @@ class DownloadVideoDto {
 
 @Controller('download')
 export class DownloadController {
-  constructor(private readonly downloadService: DownloadService) {}
+  constructor(
+    private readonly downloadService: DownloadService,
+    private readonly downloadGateway: DownloadGateway,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.ACCEPTED)
@@ -23,6 +27,9 @@ export class DownloadController {
     try {
       const { job, position } =
         await this.downloadService.addJob(downloadVideoDto);
+
+      const waitingJobs = await this.downloadService.getWaitingJobs();
+      this.downloadGateway.broadcastQueueState(waitingJobs);
 
       return {
         message: 'Seu download foi adicionado à fila.',

@@ -6,9 +6,15 @@ const statusDiv = document.getElementById('status');
 const resultDiv = document.getElementById('result');
 
 let socketId = null;
+let myJobId = null;
+
+function setFormEnabled(isEnabled) {
+  videoUrlInput.disabled = !isEnabled;
+  downloadBtn.disabled = !isEnabled;
+  downloadBtn.innerText = isEnabled ? 'Download' : 'Wait...';
+}
 
 socket.on('connect', () => {
-  console.log('Conectado ao servidor com ID:', socket.id);
   socketId = socket.id;
 });
 
@@ -18,7 +24,7 @@ downloadBtn.addEventListener('click', async () => {
     alert('Por favor, insira uma URL válida.');
     return;
   }
-
+  setFormEnabled(false);
   statusDiv.innerText = 'Enviando pedido...';
   resultDiv.innerHTML = '';
 
@@ -35,9 +41,10 @@ downloadBtn.addEventListener('click', async () => {
     });
 
     const data = await response.json();
+    myJobId = data.jobId;
 
     if (response.status === 202) {
-      statusDiv.innerText = `Pedido recebido! Seu job é o #${data.position}. Aguardando na fila...`;
+      statusDiv.innerText = `Pedido recebido! Aguardando na fila...`;
     } else {
       statusDiv.innerText = `Erro: ${data.message}`;
     }
@@ -52,6 +59,7 @@ socket.on('download-progress', (data) => {
 });
 
 socket.on('download-complete', (data) => {
+  setFormEnabled(true);
   statusDiv.innerText = 'Download concluído!';
 
   resultDiv.innerHTML = `
@@ -66,5 +74,14 @@ socket.on('download-complete', (data) => {
 });
 
 socket.on('download-error', (data) => {
+  setFormEnabled(true);
   statusDiv.innerText = `Erro no download: ${data.error}`;
+});
+
+socket.on('queue-update', (data) => {
+  const myJobInQueue = data.queue.find((job) => job.jobId === myJobId);
+
+  if (myJobInQueue) {
+    statusDiv.innerText = `Seu download está na posição ${myJobInQueue.position} da fila.`;
+  }
 });

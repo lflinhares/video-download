@@ -25,14 +25,23 @@ export class DownloadGateway
   sendProgressUpdate(socketId: string, progress: any) {
     this.server.to(socketId).emit('download-progress', progress);
   }
-  
+
   sendDownloadComplete(socketId: string, link: string, fileName: string) {
     this.server.to(socketId).emit('download-complete', {
       downloadLink: link,
       fileName: fileName,
     });
   }
+
   sendDownloadError(socketId: string, error: string) {
     this.server.to(socketId).emit('download-error', { error });
+  }
+
+  broadcastQueueState(queue: any[]) {
+    const queuePositions = queue.map((job, index) => ({
+      jobId: job.id,
+      position: index + 1,
+    }));
+    this.server.emit('queue-update', { queue: queuePositions });
   }
 }

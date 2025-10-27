@@ -1,9 +1,10 @@
-import { Process, Processor } from '@nestjs/bull';
+import { InjectQueue, Process, Processor } from '@nestjs/bull';
 import type { Job } from 'bull';
 import { spawn } from 'child_process';
 import { DownloadGateway } from './download.gateway';
 import * as path from 'path';
 import * as fs from 'fs';
+import type { Queue } from 'bull';
 
 interface DownloadJobData {
   video_url: string;
@@ -13,7 +14,10 @@ interface DownloadJobData {
 
 @Processor('download')
 export class DownloadProcessor {
-  constructor(private readonly downloadGateway: DownloadGateway) {}
+  constructor(
+    private readonly downloadGateway: DownloadGateway,
+    @InjectQueue('download') private readonly downloadQueue: Queue, // Injetar a Fila
+  ) {}
 
   @Process()
   async handleDownload(job: Job<DownloadJobData>): Promise<void> {
@@ -76,7 +80,10 @@ export class DownloadProcessor {
         console.error(`stderr: ${data}`),
       );
 
-      ytDlpProcess.on('close', (code) => {
+      ytDlpProcess.on('close', async (code) => {
+        const waitingJobs = await this.downloadQueue.getWaiting();
+        this.downloadGateway.broadcastQueueState(waitingJobs);
+
         if (code !== 0) {
           const errorMsg = `Download falhou com código ${code}`;
           console.error(errorMsg);
