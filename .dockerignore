@@ -1,0 +1,11 @@
+# Ignora a pasta de módulos do Node.js, pois ela será instalada dentro do contêiner.
+node_modules
+
+# Ignora a pasta de build do NestJS.
+dist
+
+# Ignora a pasta de downloads para não incluir vídeos baixados na imagem.
+downloads
+
+# Ignora arquivos de configuração de ambiente local.
+.env
