@@ -1,98 +1,119 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Real-Time Video Downloader API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+This project is a robust, queue-based API for downloading videos from YouTube. It features a Node.js backend built with the **NestJS** framework, a real-time progress-tracking frontend, and a containerized environment using **Docker** for easy setup and deployment.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Features
 
-## Description
+- **Queue System**: Handles multiple download requests gracefully without overloading the server. New requests are added to a persistent queue processed one by one.
+- **Real-Time Progress**: Uses **WebSockets** (`socket.io`) to provide real-time feedback to the client, including queue position and download progress percentage.
+- **Video Validation**: Pre-validates video URLs to check for size limits and prevent playlist downloads, ensuring only single videos are processed.
+- **Temporary File Storage**: Downloaded videos are stored temporarily and automatically cleaned up by a scheduled cron job to save disk space.
+- **Containerized Environment**: Fully containerized with **Docker** and **Docker Compose**, including the NestJS API and a Redis server for the queue.
+- **Simple Frontend**: A clean, minimal frontend built with vanilla HTML, CSS, and JavaScript to interact with the API.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Architecture
 
-## Project setup
+The system is designed with a background job architecture to handle long-running download tasks efficiently.
+
+1.  **Client (Frontend)**: Connects to the backend via WebSocket and sends a `POST` request to the `/download` endpoint.
+2.  **API (NestJS Controller)**: Receives the request, validates the video URL using `yt-dlp`.
+3.  **Queue (BullMQ + Redis)**: If validation passes, a new download "job" is added to a persistent Redis queue. The API immediately responds with `202 Accepted` and the job's position in the queue.
+4.  **Worker (NestJS Processor)**: A background worker picks up jobs from the queue one by one. It uses the `yt-dlp` command-line tool to download the video.
+5.  **Real-Time Feedback (WebSocket Gateway)**: The worker emits progress events (`download-progress`, `download-complete`, `download-error`) via a WebSocket gateway back to the specific client that made the request.
+6.  **File Serving & Cleanup**: Once downloaded, the file is served via a static route. A **Cron Job** (`CleanupService`) runs periodically to delete old video files from the server.
+
+ <!-- You can create and add a diagram link here if you want -->
+
+## Tech Stack
+
+- **Backend**: NestJS (Node.js), TypeScript
+- **Queue**: BullMQ, Redis
+- **Real-Time**: WebSockets (Socket.io)
+- **Downloader**: `yt-dlp` (executed as a child process)
+- **Containerization**: Docker, Docker Compose
+- **Frontend**: HTML, CSS, JavaScript (Vanilla)
+
+---
+
+## Getting Started: Local Development
+
+### Running the Application
+
+1.  **Clone the repository:**
+    ```bash
+    git clone <your-repo-url>
+    cd youtube-downloader-api
+    ```
+
+2.  **Build and run the containers:**
+    The `docker-compose` command will build the API image (installing all system and Node dependencies) and start the `api` and `redis` services.
+    ```bash
+    docker-compose up --build
+    ```
+
+3.  **Access the application:**
+    Open your browser and navigate to `http://localhost:3000`.
+
+The application will now be running in development mode with live-reloading enabled. Any changes you make to the source code will automatically restart the NestJS server inside the container.
+
+---
+
+## Deployment to a Debian VPS
+
+This project includes a production-ready multi-stage `Dockerfile` for optimized, smaller images.
+
+### 1. Prepare Your VPS
+
+- Connect to your VPS via SSH.
+- Install `git`, `docker`, and `docker-compose`. Follow the official Docker installation guides for your distribution.
+
+### 2. Set Up Your Project
+
+- Clone your repository onto the VPS.
+    ```bash
+    git clone <your-repo-url>
+    cd youtube-downloader-api
+    ```
+- **Important**: Make sure your `cookies.txt` file is present on the server. You may need to copy it securely (e.g., with `scp`) or add it to the repository if it's for a dedicated service account.
+
+### 3. Build and Deploy
+
+Use the production Docker Compose file (`docker-compose.prod.yml`) to build and run the application in detached mode.
 
 ```bash
-$ npm install
+docker-compose -f docker-compose.prod.yml up --build -d
 ```
 
-## Compile and run the project
+- `-f docker-compose.prod.yml`: Specifies the production configuration file.
+- `--build`: Builds the optimized production image using `Dockerfile.prod`.
+- `-d`: Runs the containers in the background (detached mode).
 
-```bash
-# development
-$ npm run start
+### 4. Update Frontend for Production
 
-# watch mode
-$ npm run start:dev
+Before deploying, ensure your frontend code in `public/script.js` points to your VPS IP address or domain name, not `localhost`. Use relative URLs to avoid CORS issues:
 
-# production mode
-$ npm run start:prod
+```javascript
+// public/script.js
+
+// Connects to the same host the page was served from
+const socket = io(); 
+
+// Fetch uses a relative path
+const response = await fetch('/download', { /* ... */ });
 ```
 
-## Run tests
+### 5. Managing the Production Application
 
-```bash
-# unit tests
-$ npm run test
+- **View logs:**
+  ```bash
+  docker-compose -f docker-compose.prod.yml logs -f api
+  ```
+- **Stop the application:**
+  ```bash
+  docker-compose -f docker-compose.prod.yml down
+  ```
+- **Update the application after a `git pull`:**
+  ```bash
+  docker-compose -f docker-compose.prod.yml up --build -d
+  ```
 
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
