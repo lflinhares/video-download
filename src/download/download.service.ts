@@ -1,24 +1,108 @@
 import { InjectQueue } from '@nestjs/bull';
 import {
+  BadRequestException,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
   PayloadTooLargeException,
 } from '@nestjs/common';
 import type { Queue } from 'bull';
 import { spawn } from 'child_process';
+import { v4 as uuidv4 } from 'uuid';
+import Redis from 'ioredis';
+import { DownloadVideoDto } from './dto/download-video.dto';
 
-interface DownloadVideoDto {
-  video_url: string;
-  socketId: string;
-}
 const MAX_FILE_SIZE_BYTES = (1 * 1024 * 1024 * 1024) / 6;
 
 @Injectable()
 export class DownloadService {
-  constructor(@InjectQueue('download') private readonly downloadQueue: Queue) {}
+  private readonly redis: Redis;
+
+  constructor(@InjectQueue('download') private readonly downloadQueue: Queue) {
+    this.redis = this.downloadQueue.client;
+  }
 
   async getWaitingJobs() {
     return this.downloadQueue.getWaiting();
+  }
+
+  async getVideoFormats(videoUrl: string) {
+    const metadata = await this.getVideoMetadata(videoUrl);
+
+    const availableFormats: {
+      videos: Array<{
+        formatId: string;
+        quality: string;
+        resolution: string;
+        sizeMB: string;
+      }>;
+      audios: Array<{
+        formatId: string;
+        quality: string;
+        sizeMB: string;
+      }>;
+    } = {
+      videos: [],
+      audios: [],
+    };
+
+    if (metadata && metadata.formats) {
+      metadata.formats.forEach((format) => {
+        if (!format.filesize || format.filesize > MAX_FILE_SIZE_BYTES) {
+          return;
+        }
+
+        if (
+          format.vcodec !== 'none' &&
+          format.acodec !== 'none' &&
+          format.ext === 'mp4'
+        ) {
+          availableFormats.videos.push({
+            formatId: format.format_id,
+            quality: format.format_note,
+            resolution: format.resolution,
+            sizeMB: (format.filesize / 1024 / 1024).toFixed(2),
+          });
+        }
+
+        if (
+          format.vcodec === 'none' &&
+          format.acodec !== 'none' &&
+          format.ext === 'm4a'
+        ) {
+          availableFormats.audios.push({
+            formatId: format.format_id,
+            quality: `${format.abr}kbps`,
+            sizeMB: (format.filesize / 1024 / 1024).toFixed(2),
+          });
+        }
+      });
+    }
+
+    if (
+      availableFormats.videos.length === 0 &&
+      availableFormats.audios.length === 0
+    ) {
+      throw new PayloadTooLargeException(
+        `Todos os formatos disponíveis para este vídeo excedem o limite de ${MAX_FILE_SIZE_BYTES / 1024 / 1024} MB.`,
+      );
+    }
+
+    const metadataId = uuidv4();
+
+    await this.redis.set(
+      `metadata:${metadataId}`,
+      JSON.stringify(metadata),
+      'EX',
+      600,
+    );
+
+    return {
+      title: metadata.title,
+      thumbnail: metadata.thumbnail,
+      formats: availableFormats,
+      metadataId: metadataId,
+    };
   }
 
   private async getVideoMetadata(videoUrl: string): Promise<any> {
@@ -78,18 +162,34 @@ export class DownloadService {
     });
   }
 
-  async addJob(downloadVideoDto: DownloadVideoDto) {
-    console.log(`Validando tamanho para: ${downloadVideoDto.video_url}`);
+  async addJob(
+    downloadVideoDto: DownloadVideoDto,
+  ): Promise<{ job: any; position: number }> {
+    const { metadataId, quality: formatId } = downloadVideoDto;
 
-    const metadata = await this.getVideoMetadata(downloadVideoDto.video_url);
+    if (!metadataId) {
+      throw new BadRequestException('O ID dos metadados é obrigatório.');
+    }
+
+    const metadataString = await this.redis.get(`metadata:${metadataId}`);
+    if (!metadataString) {
+      throw new NotFoundException(
+        'Os metadados expiraram ou são inválidos. Por favor, busque as opções novamente.',
+      );
+    }
+
+    const metadata = JSON.parse(metadataString);
+
     const fileSize = metadata.filesize || metadata.filesize_approx;
 
-    if (!fileSize || fileSize > MAX_FILE_SIZE_BYTES) {
-      console.log(`Vídeo recusado. Tamanho: ${fileSize}`);
+    const chosenFormat = metadata.formats.find((f) => f.format_id === formatId);
+    if (
+      !chosenFormat ||
+      !chosenFormat.filesize ||
+      chosenFormat.filesize > MAX_FILE_SIZE_BYTES
+    ) {
       throw new PayloadTooLargeException(
-        `Vídeo muito grande. O limite é de ${
-          MAX_FILE_SIZE_BYTES / 1024 / 1024
-        } MB.`,
+        'O formato selecionado excede o limite de tamanho.',
       );
     }
     const waitingCount = await this.downloadQueue.getWaitingCount();

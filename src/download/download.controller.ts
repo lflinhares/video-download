@@ -5,14 +5,13 @@ import {
   HttpCode,
   HttpStatus,
   InternalServerErrorException,
+  Get,
+  Query,
 } from '@nestjs/common';
 import { DownloadService } from './download.service';
 import { DownloadGateway } from './download.gateway';
-
-class DownloadVideoDto {
-  video_url: string;
-  socketId: string;
-}
+import { MetadataRequestDto } from './dto/metadata-request.dto';
+import { DownloadVideoDto } from './dto/download-video.dto';
 
 @Controller('download')
 export class DownloadController {
@@ -20,6 +19,12 @@ export class DownloadController {
     private readonly downloadService: DownloadService,
     private readonly downloadGateway: DownloadGateway,
   ) {}
+
+  @Get('metadata')
+  async getVideoMetadata(@Query() metadataRequestDto: MetadataRequestDto) {
+    // A lógica de buscar os metadados já existe no nosso service!
+    return this.downloadService.getVideoFormats(metadataRequestDto.video_url);
+  }
 
   @Post()
   @HttpCode(HttpStatus.ACCEPTED)

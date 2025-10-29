@@ -10,6 +10,8 @@ interface DownloadJobData {
   video_url: string;
   socketId: string;
   metadata: any;
+  format: 'video' | 'audio';
+  quality: string;
 }
 
 @Processor('download')
@@ -21,7 +23,7 @@ export class DownloadProcessor {
 
   @Process()
   async handleDownload(job: Job<DownloadJobData>): Promise<void> {
-    const { video_url, socketId, metadata } = job.data;
+    const { video_url, socketId, metadata, format, quality } = job.data;
     console.log(`Iniciando download para o job ${job.id}: ${metadata.title}`);
 
     const downloadsDir = path.join(process.cwd(), 'downloads');
@@ -37,15 +39,24 @@ export class DownloadProcessor {
     const cookieFile = path.join(process.cwd(), 'cookies.txt');
 
     return new Promise((resolve, reject) => {
+      let formatSelector = '';
+      if (format === 'audio') {
+        // Para áudio, usamos o formatId do áudio + o melhor áudio como fallback
+        formatSelector = `${quality}/bestaudio`;
+      } else {
+        // Para vídeo, o formatId já inclui vídeo e áudio.
+        // Adicionamos um fallback caso o ID específico falhe.
+        formatSelector = `${quality}/best`;
+      }
+
       const args = [
         '--no-playlist',
-        /* '--cookies', cookieFile, */
         '-o',
         outputTemplate,
         '--merge-output-format',
         'mp4',
         '-f',
-        'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+        formatSelector, // <-- MUDANÇA PRINCIPAL
         '--progress',
         video_url,
       ];

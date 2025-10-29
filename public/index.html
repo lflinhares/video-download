@@ -1,28 +1,81 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>YouTube Downloader</title>
     <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f4f4; }
-        .container { text-align: center; padding: 2rem; background-color: white; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        input { width: 300px; padding: 0.5rem; margin-bottom: 1rem; }
-        button { padding: 0.5rem 1rem; cursor: pointer; }
-        #status { margin-top: 1rem; font-weight: bold; }
-        #result { margin-top: 1rem; }
+      body {
+        font-family: sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background-color: #f4f4f4;
+      }
+      .container {
+        text-align: center;
+        padding: 2rem;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+      input {
+        width: 300px;
+        padding: 0.5rem;
+        margin-bottom: 1rem;
+      }
+      button {
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+      }
+      #status {
+        margin-top: 1rem;
+        font-weight: bold;
+      }
+      #result {
+        margin-top: 1rem;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <h1>YouTube Downloader</h1>
-        <input type="text" id="videoUrl" placeholder="Cole a URL do vídeo aqui">
-        <button id="downloadBtn">Baixar</button>
-        <div id="status"></div>
-        <div id="result"></div>
+      <h1>YouTube Downloader</h1>
+      <div id="input-step">
+        <input
+          type="text"
+          id="videoUrl"
+          placeholder="Cole a URL do vídeo aqui"
+        />
+        <button id="fetchBtn">Buscar Opções</button>
+      </div>
+
+      <div id="options-step" style="display: none">
+        <img id="thumbnail" src="" alt="Video Thumbnail" width="120" />
+        <h3 id="videoTitle"></h3>
+        <div id="options-form">
+          <select id="formatType">
+            <option value="video">Vídeo</option>
+            <option value="audio">Áudio</option>
+          </select>
+          <select id="qualityOptions"></select>
+          <!-- Mensagem para quando não houver opções -->
+          <p id="no-options-message" style="display: none; color: #888"></p>
+          <button id="downloadBtn">Baixar</button>
+
+          <!-- Botão Voltar -->
+          <button id="backBtn">
+            Voltar
+          </button>
+        </div>
+      </div>
+
+      <div id="status"></div>
+      <div id="result"></div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="/script.js"></script>
-</body>
+  </body>
 </html>
