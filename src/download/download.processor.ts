@@ -103,7 +103,10 @@ export class DownloadProcessor {
         }
 
         const uniqueFileName = path.basename(finalFilePath);
-        const cleanFileName = `${metadata.title}.mp4`;
+        const cleanFileName =
+          format === 'video'
+            ? `${metadata.title}.mp4`
+            : `${metadata.title}.mp3`;
 
         console.log(`Download completo: ${uniqueFileName}`);
 
